@@ -1,0 +1,239 @@
+//HeatMap Code: 
+vc = {
+  template: 'none',
+	data: 'heatmapComponent-data',
+	src: ["data"],
+	props: [],
+  libs:['https://d3js.org/d3.v4.min.js'], 
+	init: function() {
+    
+    this.size = this.config.size; 
+  
+    this.view.content = `<div id="heatmap"></div><div id="locationDropdown"></div>`;
+    
+    let that = this;
+    this.getQueryObject = require("#stdlib-query").getQueryObject; 
+    
+    this.svg = d3.select(this.view.element.querySelector("svg")).append("g").attr("class", "container");
+    
+     let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        times = d3.range(24); 
+    let margin = {top:40, 
+                  right:50, 
+                  bottom:70, 
+                  left:50};
+    
+    
+    this.updateHeatmap = (location) => {
+      console.log("currentLocationIndex: " + currentLocationIndex);
+      // filter data to return object of location of interest
+      var selectLocation = nest.find(function(d) {
+        return d.key == location;
+      });
+    var heatmap = svg.selectAll(".hour")
+        .data(selectLocation.values)
+        .transition()
+          .duration(500)
+          .style("fill", function(d) { return colours(d.value); });
+    
+    };
+                                     
+                                     
+   
+   
+    
+    //initialise svg container: 
+    var w = 500 - margin.left - margin.right,
+        gridSize = Math.floor(w / times.length),
+       h = gridSize * (days.length+2); 
+       // h =  600 - margin.top - margin.bottom;
+
+    //Adaptive font size: 
+    var newFontSize = w * (62.5/900);
+    d3.select("html").style("font-size", newFontSize + "%"); 
+
+    
+     //If there is no Data present render No data connected. 
+      this.draw_default = () => {
+      let svg = d3.select(this.view.element.querySelector("svg"));
+        
+        svg.select(".container").remove();
+        svg.append("g").attr("class", "container")
+        .append("text")
+        .attr("x", 50)
+        .attr("y", 50)
+        .attr("class", "noData").text("No data is connected");
+        
+    };
+    
+    
+     this.DrawHeatmap = () => {
+       //load json:
+      d3.json("test.json",function(error, data){
+       data.forEach(function(d) {
+          d.day = +d.day;
+          d.hour = +d.hour;
+          d.value = +d.value;
+        });
+        let dataset = data;
+
+        
+        
+         // nest data by location
+         //selecting keys which are from dataset grouped via locality
+         this.nest = d3.nest()
+         .key(function(d) { return d.location; })
+         .entries(dataset);
+       
+        // array of locations in the data
+       let locations = nest.map(function(d) { return d.key; });
+       let currentLocationIndex = 0;
+        
+        
+        
+      // filter the data to return object of location of interest
+        let selectLocation = nest.find(function(d) {
+            return d.key == locations[0];
+          });
+        
+        console.log(selectLocation);
+ 
+
+        //colours and scales: 
+        let colours = d3.scaleLinear()
+    .domain(d3.range(1, 11, 1))
+    .range(["#87cefa", "#86c6ef", "#85bde4", "#83b7d9", 
+            "#82afce", "#80a6c2", "#7e9fb8", "#7995aa", "#758b9e", "#708090"]);
+        
+        
+        this.svg = d3.select("#heatmap")
+       .append("svg")
+       .attr("width", w + margin.top + margin.bottom)
+       .attr("height", h + margin.left + margin.right)
+       .append("g")
+       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        
+       
+        //svg time labels. 
+         this.timeLabels = svg.selectAll(".timeLabel")
+        .data(times)
+        .enter()
+        .append("text")
+        .attr("class", 'timeLabel')
+        .text(function(d) { return d; })
+        .attr("x", function(d, i) { return i * gridSize; })
+        .attr("y", 0)
+        .style("text-anchor", "middle")
+        .attr("transform", "translate(" + gridSize / 2 + ", -6)");
+
+        // svg for labelling days
+      let dayLabels = svg.selectAll(".dayLabel")
+         .data(days)
+         .enter()
+         .append("text")
+         .attr("class", "dayLabel")
+         .text(function(d) { return d; })
+         .attr("x", 0)
+         .attr("y", function(d, i) { return i * gridSize; })
+         .style("text-anchor", "end")
+         .attr("transform", "translate(-6," + gridSize / 1.5 + ")"); 
+    //
+       let heatmap = svg.selectAll(".hour")
+          .data(selectLocation.values)
+          .enter()
+          .append("rect")
+          .attr("x", function(d) { return (d.hour-1) * gridSize; })
+          .attr("y", function(d) { return (d.day-1) * gridSize; })
+          .attr("class", "hour bordered")
+          .attr("width", gridSize)
+          .attr("height", gridSize)
+          .style("stroke", "white")
+          .style("stroke-opacity", 0.6)
+          .style("fill", function(d) { return colours(d.value); });
+        
+        
+            // create location dropdown menu
+            this.locationMenu = d3.select("#locationDropdown")
+           .append("select")
+           .attr("id", "locationMenu")
+           .selectAll("option")
+           .data(locations)
+           .enter()
+           .append("option")
+           .attr("value", function(d, i) { return i; })
+           .text(function(d) { return d; });
+
+        this.locationMenu.on("change", () =>{
+      // find which location was selected from the dropdown
+         
+      var selectedLocation = d3.select(this)
+        .select("select")
+        .property("value");
+      currentLocationIndex = +selectedLocation;
+      // run update function with selected location
+      this.updateHeatmap(locations[currentLocationIndex]);
+          
+          
+    });    
+        
+          });
+      };
+    },
+	destroy: function() {
+    
+	},
+	update: function(source) {
+    if (true||!this.src.data) 
+        {
+        this.DrawHeatmap();
+        }
+  
+	},
+};
+
+//CSS STYLING: 
+#heatmapComponent-view{
+ width: 960px;
+ height: 500px;
+ background-color: white;
+}
+
+visual-new font{
+ margin-top: 30px;
+      font-size: 1.4rem;
+      font-family: 'Source Sans Pro', sans-serif;
+      font-weight: 400;
+      fill: #696969;
+      text-align: center; 
+}
+
+#visual-new .timeLabel, .dayLabel { 
+font-size: 1.6rem;
+		    fill: #AAAAAA;
+		    font-weight: 300; 
+}
+
+#visual-new nav-container { 
+display: flex;
+      justify-content: center;
+      cursor: pointer;
+}
+
+#visual-new nav-container .left{ 
+margin-right: 20px; 
+}
+#visual-new nav-container .right{ 
+margin-left: 20px; 
+}
+
+//Data Component of View: 
+{
+  "config": {
+    "src": {},
+    "view": "heatmapComponent-view",
+    "size": {"width": 930,"height": 500},
+    "margin": {"top":40,"right":50,"bottom":70,"left":50}
+  },
+  "data": {}
+}
