@@ -1,0 +1,378 @@
+//Component#1: Tabulated Data: 
+//JavaScript: 
+vc = {
+	template: 'none',
+	data: 'tabulatedData-data',
+	src: [],
+	props: [],
+  libs: ["https://unpkg.com/tabulator-tables@4.2.3/dist/js/tabulator.min.js", "https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.5/jspdf.min.js", "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.0.5/jspdf.plugin.autotable.js"], 
+	init: function() {
+    
+    importStyle (["https://unpkg.com/tabulator-tables@4.2.3/dist/css/tabulator.min.css", "http://oss.sheetjs.com/js-xlsx/xlsx.full.min.js"]);
+    
+    this.showUploadButton = () => {
+      const uploadButton = document.createElement("button");
+      uploadButton.innerText = "Upload Json asset";
+      console.log(uploadButton);
+      this.view.content = uploadButton;
+      uploadButton.addEventListener("click", (e) => {
+        webstrate.uploadAsset((err, res) => {
+          this.data = {asset: res};
+          
+        });
+      });
+
+    };
+    this.showTable = (data) => {
+      
+      let tableview = document.createElement("div");
+      tableview.setAttribute("id", "table-view");
+      // adding tableview to the component's view appending the html into view 
+      this.view.content = tableview;     
+      // import json to load data - read json code
+      // access Tabulator to pass the json object
+      var dataset = data;
+
+      
+      //tabulator constructor
+      var table = new Tabulator(tableview, {
+        //insert array of jsondata 
+        data: dataset, 
+        autoColumns: true,
+        height: '311px',
+        //adding event listeners for row-clicking 
+        rowClick:function(e, row){ //trigger an alert message when the row is clicked
+          alert("Row " + row.getData().id + " No click functionality added yet!");
+        }, 
+      }); 
+
+    }; 
+  },
+	destroy: function() {
+		if (this.view) this.view.content = "";
+	},
+	update: function(source) {
+	 if (!this.data.asset) {
+      this.showUploadButton();
+    } else {
+      
+      
+      fetch('./'+this.data.asset.fileName)
+        .then(response => {
+          return response.json();
+        })
+        .then(data => {
+        	this.showTable(data);
+					this.output = data;
+        })
+        .catch(err => {
+          // Do something for an error here
+        console.log("No Data To Be Tabulated!"); 
+        });
+    }
+	},
+};
+
+//Data Paragraph: 
+{
+  "config": {
+    "src": {},
+    "view": "tabulatedData-view"
+  },
+  "data": {
+    "asset": {
+      "v": 212,
+      "fileName": "adris.json",
+      "fileSize": 28921,
+      "mimeType": "application/json",
+      "identifier": "02a9b8397a17303738839caac3284359",
+      "fileHash": "7f7bbe0ad8afae4260dcb40b7b00eb18"
+    }
+  }
+}
+
+//CSS: 
+#table-view {
+  background-color: white;
+  min-height: 300px;
+  max-width: 1000px;
+}
+
+
+//COMPONENT 2: FILTERS: 
+//JavaScript: Note: this pipes any desired output in update paragraph: 
+vc = {
+	template: 'none',
+	data: 'filter-Sort-data',
+	src: ['adrisdata'],
+  libs: [],
+	props: ['location','data'],
+	init: function() { 
+//Data Filters: 
+    
+    //PASSED IN DATA : let dataset = this.src.adrisdata.output;
+    let dataset = this.src.adrisdata.output;
+    //console.log(dataset); 
+    
+     
+    //Filter 1: Return all matches entries: 
+   function getFields(input, field) {
+    var output = [];
+    for (var i=0; i < input.length ; ++i)
+        output.push(input[i][field]);
+    return output;
+    }
+    //example usage: 
+var result = getFields(dataset, "value");
+   // console.log(result); 
+    
+      //filter 2: Sort in order
+    //sorts based on attribute: specified within body:
+    
+    let sorted_dataset = dataset.sort(function(a, b,attr) {
+      //changing body
+      if (a.value > b.value) {
+        return 1;
+      }
+      if (a.value < b.value) {
+        return -1;
+      }
+      return 0;
+    });
+    
+   
+    //console.log(sorted_dataset); 
+    
+    //Filter 3: Boundary filter: 
+    // Flexible logic definition so that you can filter based on any attribute and values!
+    let createLogic = (attributes, values) => {
+     let logic = (d) => {
+        return d[attributes[0]] == values[0] && d[attributes[1]] > values[1][0] && d[attributes[1]] < values[1][1];
+      };
+      return logic;  
+    };
+   
+    //APPLICATION: 
+    let filtered_dataset = dataset.filter(createLogic(["location", "day"], ["location one", [1, 3]]));
+   //console.log("filtered data with flexible logic", filtered_dataset);
+    
+    
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    //Aggregate Filters: Specified to work on numerical attributes only, once retrived using filter!
+    
+   
+    //Numerical Attribute Sum
+    let sumCalcLogic = function(attr) {
+      let logic = (sum, a) => {
+         return sum + a[attr]; 
+      };
+      return logic;
+    };
+    //return sum of given attribute
+    let sumValue = filtered_dataset.reduce(sumCalcLogic("value"), 0);
+    //console.log("sum", sumValue);
+   
+     //Numerical Attribute Average Aggregate: //rounded.
+    let avgValue = sumValue/filtered_dataset.length;
+    let roundedAvg = Math.round(avgValue); 
+   // console.log("average", roundedAvg);
+    
+    
+    
+    
+    
+    //Advance Integrity: Removing Null entries
+    
+    //removes all undefined, null or negatives
+    function remNull(dataset) {  
+            var filtered = dataset.filter(function (el) { 
+                
+              return (el !== undefined || el !== null || el.length >= 0); 
+            }); 
+     
+     var noNull = filtered;
+ return noNull;
+    }
+     let newNulless = remNull(dataset);
+    //console.log("all nulls removed:", newNulless); 
+    
+    
+    
+    
+    //Advanced 2: Return unique: Operates on Attribute and dataset: 
+    function getUnique(arr, comp) {
+  const unique = arr
+       .map(e => e[comp])
+
+     // store the keys of the unique objects
+    .map((e, i, final) => final.indexOf(e) === i && i)
+
+    // eliminate the dead keys & store unique objects
+    .filter(e => arr[e]).map(e => arr[e]);
+
+   return unique;
+}
+   
+//console.log("removed all dupes:",getUnique(dataset,'value')); 
+
+    //Advance Filter 3: Outlier Removal: 
+    
+    
+     let traversal = (d, attr) =>{ 
+      var dLength = d.length; 
+      var newArr = []; 
+      for(var i = 0; i<dLength; i++){
+        newArr.push(d[i][attr]);  
+        }
+      return newArr; 
+    }; 
+    
+
+    //We specify the attribute we wish to retrieve the value of: ie. Value:
+  let specific_Data = traversal(dataset,"value");
+    
+    //Filtering anomalies: 
+    
+   let filterOutlier = function(arr) {
+      if(arr.length<4)
+      return arr; 
+     
+     let values, quart1, quart3, interQuart, maxVal, minVal; 
+     values = arr.slice().sort((a,b)=> a-b); 
+
+     if((values.length / 4) % 1 === 0){
+       quart1 = 1/2 * (values[(values.length / 4)] + values[(values.length/4)+1]);
+       
+       quart3 = 1/2 * (values[(values.length*(3/4))] + values[(values.length *(3/4))+1]);
+                       }
+     else {
+    quart1 = values[Math.floor(values.length / 4 + 1)];
+    quart3 = values[Math.ceil(values.length * (3 / 4) + 1)];
+     }
+  
+     interQuart = quart3 - quart1; 
+     var maxValue = quart3 + interQuart * 0; //1.5
+     var minValue = quart1 - interQuart * 0; //1.5
+     
+     return values.filter((x)=> (x >= minValue) && (x<= maxValue)); 
+   }; 
+    
+    //contains all unanomalous Values for given attribute 
+     let specific_filter_Data = filterOutlier(specific_Data);
+  
+    //console.log(specific_filter_Data);
+    
+    // Creates an array of all unanomalous values: 
+    var uniqueArray = [...new Set(specific_filter_Data)]; 
+    //console.log(uniqueArray); 
+   
+    //[1,4,,6,8,4,6,7,3,2]
+    //pushed into unique function which returns : [1,4,6,8,7,3,2] this is unique
+    
+    //(unique, dataset, attribute)
+    //take each value for given attribute and filter out all object which match given number for attribute.
+    //for all value in array.
+    let filterAttribute = (unique, dataset, attr)=>{
+      let uniqueLength = unique.length;
+      let dataLength = dataset.length;
+      var newArr = []; 
+      for(var i = 0;i<uniqueLength;i++){
+        for(var j = 0;j<dataLength;j++){
+          if(dataset[j][attr]==unique[i])
+        		 newArr.push(dataset[j]);  
+      	}
+      }
+      return newArr;
+    };
+    
+      //Removing outliers for entire attribute: 
+      console.log(filterAttribute(uniqueArray,dataset,"value"));
+    //all un-anomalous data objects: 
+     this.newdata = filterAttribute(uniqueArray,dataset,"value"); 
+    
+    
+	},
+	destroy: function() {
+
+	},
+	update: function(source) { 
+    if(!this.src.adrisdata || !this.src.adrisdata.output){
+      this.output = {};
+    }
+    else{
+      //output desired: 
+      this.output = this.newdata;
+    }
+	
+	},
+};
+//Data Paragraph: 
+{
+  "config": {
+    "src": { "adrisdata" : "tabulatedData"},
+    "view": "filter-Sort-view"
+  },
+  "data": {}
+}
+
+
+//Final Component: Tabulated out: 
+//Javascript: 
+vc = {
+	template: 'none',
+	data: 'tabulatedOut-data',
+	src: ['data'],
+	props: [],
+  libs: ["https://unpkg.com/tabulator-tables@4.2.3/dist/js/tabulator.min.js"], 
+	init: function() {
+    
+     importStyle (["https://unpkg.com/tabulator-tables@4.2.3/dist/css/tabulator.min.css"]);
+    
+
+     this.showTable = (data) => {
+      
+      let tableview = document.createElement("div");
+      tableview.setAttribute("id", "tabulatedOut-view");
+      this.view.content = tableview;     
+      this.output = data; 
+      var table = new Tabulator(tableview, {
+         data: data, 
+         autoColumns: true,
+         height: '311px',
+
+         rowClick:function(e, row){
+           alert("Row " + row.getData().id + " No click functionality added yet!");
+         }, 
+      }); 
+       
+     };
+	},
+	destroy: function() {
+		if (this.view) this.view.content = "";
+	},
+	update: function(source) {
+	//within this segment i simply wish to take the asset successfully passed in from Filter-Sort and Tabulate in a similar manner to the 1st component. 
+    // it will be optimal if you could simply  implement it such that you perhaps apply a small change within the filter-sort segment, upload as a new asset which is stored in this final segment and tabulate in this component to ensure it is not the same asset as the initial asset located in 1st component.
+    
+    if (!this.src.data || !this.src.data.output) {
+      this.view.content = "";
+      this.output = {};
+    } else {
+      this.showTable(this.src.data.output);
+    }
+	},
+};
+//CSS: 
+#table-view {
+  background-color: white;
+  min-height: 300px;
+  max-width: 1000px;
+}
+//Data Paragraph: 
+{
+  "config": {
+    "src": {"data": "filter-Sort"},
+    "view": "tabulatedOut-view"
+  },
+  "data": {}
+}
