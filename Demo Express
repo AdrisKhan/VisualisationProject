@@ -1,0 +1,50 @@
+
+
+app.use(cors())
+app.use(express.json())
+
+
+app.use(bodyParser.json({limit: '50mb', extended: true}))
+app.use(express.bodyParser({limit: '50mb'}));
+app.use(bodyParser.urlencoded({limit: '50mb', extended: true}))
+/*
+//function Code:
+
+function filter_outliers(array, key, deviations=1.5) {
+    const keys = array.map(key);
+    const mean = keys.reduce((accumulator, value) => (accumulator+value), 0) / keys.length;
+    const stdev = Math.sqrt(keys.reduce((accumulator, value) => (accumulator + Math.pow(value - mean, 2))) / (keys.length - 1));
+    const total_deviation = deviations * stdev;
+
+    return array.filter((obj) => {
+        var k = key(obj);
+        return mean - total_deviation <= k && k <= mean + total_deviation;
+    });
+}
+*/
+
+app.post('/', function (req, res) {
+    res.json({body: req.body})
+    console.log(req.body);
+//response goes here
+
+
+
+    //This can be used to convert the Post request body to CSV format: note that vistrates treats csv as json.
+    /*
+    try {
+        const csv = parse(req.body);
+        console.log(csv);
+        res.valueOf(csv);
+
+
+    } catch (err) {
+        console.error(err);
+    }
+    */
+
+})
+
+app.listen(8081, function () {
+    console.log('CORS-enabled web server listening');
+})
